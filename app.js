@@ -523,7 +523,7 @@ const state = {
   clearanceSystem: "metric",
   clearanceSize: "M6",
   torqueSystem: "unc",
-  torqueGrade: "grade5",
+  torqueGrade: "a2",
   torqueSize: "1/2",
   torqueSeries: "unc",
   torqueK: "dry",
@@ -797,6 +797,64 @@ function findNearestDrill(inches) {
   return best;
 }
 
+function drillChoiceInches(type, choice) {
+  if (type === "number") return DRILL_DATA.numbers[choice] || null;
+  if (type === "letter") return DRILL_DATA.letters[choice] || null;
+  if (type === "fraction") return DRILL_DATA.fractions[choice] || null;
+  if (type === "metric") {
+    const mm = parseFloat(choice);
+    return Number.isNaN(mm) ? null : mm / 25.4;
+  }
+  return null;
+}
+
+function nearestDrillChoice(type, targetInches, fallback) {
+  const choices = DRILL_BUTTONS[type] || [];
+  if (!choices.length || targetInches === null || targetInches === undefined) {
+    return choices[0] || fallback;
+  }
+  let best = choices[0];
+  let bestDelta = Math.abs(targetInches - drillChoiceInches(type, best));
+  choices.forEach((choice) => {
+    const inches = drillChoiceInches(type, choice);
+    if (inches === null) return;
+    const delta = Math.abs(targetInches - inches);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = choice;
+    }
+  });
+  return best;
+}
+
+function threadMajorInches(size) {
+  const metric = METRIC_THREADS.find((t) => t.size === size);
+  if (metric) return metric.major / 25.4;
+  const inch = UNC_UNF_SIZES.find((s) => s.size === size);
+  if (inch) return inch.major;
+  return null;
+}
+
+function nearestThreadSize(targetIsMetric, currentSize, fallback) {
+  const sizes = targetIsMetric ? METRIC_THREADS : UNC_UNF_SIZES;
+  if (sizes.some((s) => s.size === currentSize)) return currentSize;
+
+  const currentMajor = threadMajorInches(currentSize);
+  if (currentMajor === null) return fallback;
+
+  let best = sizes[0];
+  let bestDelta = Math.abs(currentMajor - threadMajorInches(best.size));
+  sizes.forEach((size) => {
+    const major = threadMajorInches(size.size);
+    const delta = Math.abs(currentMajor - major);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = size;
+    }
+  });
+  return best.size;
+}
+
 function calcTapDrillInch(major, tpi, percent) {
   if (!major || !tpi) return null;
   const pitch = 1 / tpi;
@@ -899,11 +957,21 @@ function setState(next) {
   Object.assign(state, next);
   render();
 }
+
+function setLiveState(next) {
+  Object.assign(state, next);
+  renderPanel();
+}
+
 const ROW_SCROLL = {};
+let ROW_KEYS_BEFORE_RENDER = new Set();
 
 function renderRows() {
   const rows = document.getElementById("rows");
   const categoryRow = document.getElementById("categoryRow");
+  ROW_KEYS_BEFORE_RENDER = new Set(Array.from(document.querySelectorAll(".row-buttons"))
+    .map((buttons) => buttons.dataset.scrollKey)
+    .filter(Boolean));
   rows.innerHTML = "";
   categoryRow.innerHTML = "";
 
@@ -925,10 +993,11 @@ function renderRows() {
     const row = createRow("Mode", options, state.mode, (id) => {
       if (state.category === "torque") {
         const isMetric = id.startsWith("metric");
+        const wasMetric = state.mode.startsWith("metric");
         setState({
           mode: id,
-          torqueGrade: isMetric ? "8.8" : "grade5",
-          torqueSize: isMetric ? "M10" : "1/2"
+          torqueGrade: isMetric === wasMetric ? state.torqueGrade : "a2",
+          torqueSize: nearestThreadSize(isMetric, state.torqueSize, isMetric ? "M10" : "1/2")
         });
         return;
       }
@@ -972,7 +1041,14 @@ function renderRows() {
     rows.appendChild(toRow);
     const valueRow = document.createElement("div");
     valueRow.className = "row row-tight";
-    valueRow.appendChild(createInputBlock("Value", "number", state.convertValue, (val) => setState({ convertValue: Number(val) || 0 }), "tight-input"));
+    valueRow.appendChild(createInputBlock("Value", "number", state.convertValue, (val, live) => {
+      const next = { convertValue: Number(val) || 0 };
+      if (live) {
+        setLiveState(next);
+      } else {
+        setState(next);
+      }
+    }, "tight-input"));
     rows.appendChild(valueRow);
   }
 
@@ -984,7 +1060,7 @@ function renderRows() {
       { id: "metric-fine", label: "Metric Fine" }
     ], state.tapSystem, (id) => setState({
       tapSystem: id,
-      tapSize: id.startsWith("metric") ? "M6" : "#8"
+      tapSize: nearestThreadSize(id.startsWith("metric"), state.tapSize, id.startsWith("metric") ? "M6" : "#8")
     }), "tap:system");
     rows.appendChild(row);
 
@@ -1002,7 +1078,7 @@ function renderRows() {
       { id: "inch", label: "Inch (rule of thumb)" }
     ], state.clearanceSystem, (id) => setState({
       clearanceSystem: id,
-      clearanceSize: id === "metric" ? "M6" : "1/2"
+      clearanceSize: nearestThreadSize(id === "metric", state.clearanceSize, id === "metric" ? "M6" : "1/2")
     }), "clearance:system");
     rows.appendChild(systemRow);
 
@@ -1019,8 +1095,8 @@ function renderRows() {
       { id: "fraction", label: "Fraction" },
       { id: "metric", label: "Metric" }
     ], state.drillType, (id) => {
-      const choices = DRILL_BUTTONS[id];
-      const nextChoice = choices?.[0] || "7";
+      const targetInches = drillChoiceInches(state.drillType, state.drillChoice);
+      const nextChoice = nearestDrillChoice(id, targetInches, "7");
       setState({
         drillType: id,
         drillChoice: nextChoice,
@@ -1094,6 +1170,7 @@ function renderRows() {
 function createRow(title, options, active, onSelect, key = title) {
   const row = document.createElement("div");
   row.className = "row";
+  const shouldCenterActive = !ROW_KEYS_BEFORE_RENDER.has(key);
   const header = document.createElement("div");
   header.className = "row-title";
   header.textContent = title;
@@ -1120,11 +1197,21 @@ function createRow(title, options, active, onSelect, key = title) {
   row.appendChild(header);
   row.appendChild(buttons);
   requestAnimationFrame(() => {
-    if (ROW_SCROLL[key] != null) {
+    if (shouldCenterActive) {
+      centerButtonsOnActive(buttons);
+    } else if (ROW_SCROLL[key] != null) {
       buttons.scrollLeft = ROW_SCROLL[key];
     }
   });
   return row;
+}
+
+function centerButtonsOnActive(buttons) {
+  const active = buttons.querySelector("button.active");
+  if (!active) return;
+  const offset = active.offsetLeft - ((buttons.clientWidth - active.offsetWidth) / 2);
+  buttons.scrollLeft = Math.max(0, offset);
+  ROW_SCROLL[buttons.dataset.scrollKey] = buttons.scrollLeft;
 }
 
 function renderInputs() {
@@ -1154,6 +1241,7 @@ function renderInputs() {
     dia.step = "0.001";
     dia.value = state.speedDia;
     dia.placeholder = "Dia (in)";
+    dia.addEventListener("input", () => setLiveState({ speedDia: Number(dia.value) || 0.25 }));
     dia.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         setState({ speedDia: Number(dia.value) || 0.25 });
@@ -1166,6 +1254,7 @@ function renderInputs() {
     feed.step = "0.001";
     feed.value = state.speedFeed;
     feed.placeholder = state.mode === "drill" ? "Feed/rev" : "Feed/tooth";
+    feed.addEventListener("input", () => setLiveState({ speedFeed: Number(feed.value) || 0.005 }));
     feed.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         setState({ speedFeed: Number(feed.value) || 0.005 });
@@ -1197,13 +1286,14 @@ function createInputBlock(label, type, value, onInput, className = "") {
   input.value = value;
   input.placeholder = label;
   input.addEventListener("focus", () => input.select());
+  input.addEventListener("input", () => onInput(input.value, true));
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      onInput(e.target.value);
+      onInput(e.target.value, false);
       input.blur();
     }
   });
-  input.addEventListener("blur", () => onInput(input.value));
+  input.addEventListener("blur", () => onInput(input.value, false));
   block.appendChild(lab);
   block.appendChild(input);
   return block;

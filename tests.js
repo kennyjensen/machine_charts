@@ -44,8 +44,44 @@
     return Array.from(row.querySelectorAll("button.select")).map((b) => b.textContent.trim());
   };
 
+  const clickRowButton = async (rowTitle, buttonText) => {
+    const rows = Array.from(document.querySelectorAll("#categoryRow .row, #rows .row"));
+    const row = rows.find((r) => r.querySelector(".row-title")?.textContent.trim() === rowTitle);
+    const button = row && Array.from(row.querySelectorAll("button.select")).find((b) => b.textContent.trim() === buttonText);
+    if (!button) return false;
+    button.click();
+    await waitRender();
+    return true;
+  };
+
+  const activeRowButtonText = (rowTitle) => {
+    const rows = Array.from(document.querySelectorAll("#categoryRow .row, #rows .row"));
+    const row = rows.find((r) => r.querySelector(".row-title")?.textContent.trim() === rowTitle);
+    return row?.querySelector("button.select.active")?.textContent.trim() || "";
+  };
+
+  const activeButtonCentered = (rowTitle) => {
+    const rows = Array.from(document.querySelectorAll("#categoryRow .row, #rows .row"));
+    const row = rows.find((r) => r.querySelector(".row-title")?.textContent.trim() === rowTitle);
+    const buttons = row?.querySelector(".row-buttons");
+    const active = row?.querySelector("button.select.active");
+    if (!buttons || !active) return false;
+    if (buttons.scrollWidth <= buttons.clientWidth) return true;
+    const buttonCenter = active.offsetLeft + (active.offsetWidth / 2) - buttons.scrollLeft;
+    const rowCenter = buttons.clientWidth / 2;
+    return Math.abs(buttonCenter - rowCenter) <= Math.max(12, active.offsetWidth / 2);
+  };
+
   const hasQuickDrillInput = () => {
     return Array.from(document.querySelectorAll("input[type='text']")).some((i) => (i.placeholder || "").toLowerCase().includes("quick drill"));
+  };
+
+  const defaultsAndCenteringTest = async () => {
+    await setState({ category: "drill", mode: "convert", torqueGrade: "a2", torqueSize: "1/2" });
+    const torqueClicked = await clickRowButton("Category", "Torque Spec");
+    await waitRender();
+    add("torque default material is stainless", torqueClicked && activeRowButtonText("Bolt Material").includes("Stainless steel"), activeRowButtonText("Bolt Material"));
+    add("new torque material row centers selected", torqueClicked && activeButtonCentered("Bolt Material"), `scroll=${document.querySelector("#rows .row-buttons[data-scroll-key='torque:inch:material']")?.scrollLeft || 0}`);
   };
 
   const testsByCategory = async () => {
@@ -153,6 +189,35 @@
     const toOk = shownTo && shownTo.primary === expectedTo.primary && shownTo.secondary === expectedTo.secondary;
     add("convert length m→ft From", fromOk, shownFrom ? `${shownFrom.primary} | ${shownFrom.secondary}` : "missing");
     add("convert length m→ft To", toOk, shownTo ? `${shownTo.primary} | ${shownTo.secondary}` : "missing");
+
+    await setState({ category: "convert", mode: "length", convertValue: 1, convertFrom: "in", convertTo: "mm" });
+    const valueInput = document.querySelector("#rows input[type='number']");
+    if (valueInput) {
+      valueInput.focus();
+      valueInput.value = "2";
+      valueInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await waitRender();
+    }
+    const liveTo = getKpi("To");
+    add("convert updates while typing", !!valueInput && app.state.convertValue === 2 && liveTo?.primary === "50.8 mm", liveTo ? `${liveTo.primary} | active=${document.activeElement === valueInput}` : "missing");
+  };
+
+  const sizeRetentionTest = async () => {
+    await setState({ category: "torque", mode: "metric-fine", torqueGrade: "8.8", torqueSize: "M8" });
+    const torqueClicked = await clickRowButton("Mode", "Metric Coarse");
+    add("torque metric mode keeps M8", torqueClicked && app.state.torqueSize === "M8", `size=${app.state.torqueSize}`);
+
+    await setState({ category: "drill", mode: "tap", tapSystem: "metric-fine", tapSize: "M8" });
+    const tapClicked = await clickRowButton("Thread System", "Metric Coarse");
+    add("tap metric system keeps M8", tapClicked && app.state.tapSize === "M8", `size=${app.state.tapSize}`);
+
+    await setState({ category: "drill", mode: "convert", drillType: "letter", drillChoice: "E", drillInput: "E" });
+    const fractionClicked = await clickRowButton("Type", "Fraction");
+    add("drill letter E maps to 1/4 fraction", fractionClicked && app.state.drillChoice === "1/4", `choice=${app.state.drillChoice}`);
+
+    await setState({ category: "drill", mode: "convert", drillType: "fraction", drillChoice: "1/4", drillInput: "1/4" });
+    const letterClicked = await clickRowButton("Type", "Letter");
+    add("drill 1/4 fraction maps to letter E", letterClicked && app.state.drillChoice === "E", `choice=${app.state.drillChoice}`);
   };
 
   const inputSpacingTest = async () => {
@@ -227,8 +292,10 @@
     }
   };
 
+  await defaultsAndCenteringTest();
   await testsByCategory();
   await conversionsTest();
+  await sizeRetentionTest();
   await inputSpacingTest();
   await panelBottomTest();
   await panelTopTest();
