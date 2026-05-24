@@ -118,6 +118,12 @@
     const torqueAl = getKpi("Torque");
     const torqueDiff = torqueSteel && torqueAl && torqueSteel.primary !== torqueAl.primary;
     add("torque differs for thread material", torqueDiff, `${torqueSteel?.primary || "?"} -> ${torqueAl?.primary || "?"}`);
+    const threadButtons = rowButtonsText(3);
+    add("torque thread material includes brass/delrin/titanium", ["Into brass", "Into Delrin", "Into titanium"].every((label) => threadButtons.includes(label)), `buttons=${threadButtons.join(",")}`);
+    for (const material of ["brass", "delrin", "titanium"]) {
+      await setState({ category: "torque", mode: "unc", torqueThreadMaterial: material });
+      add(`torque ${material} thread material calculates`, kpiHasNumber("Torque") && getKpi("Thread Material")?.primary.toLowerCase().includes(material), `${kpiDetail("Thread Material")} / ${kpiDetail("Torque")}`);
+    }
 
     await setState({ category: "torque", mode: "metric-coarse", torqueGrade: "a2", torqueSize: "M10" });
     add("torque metric stainless proof present", kpiHasNumber("Proof"), kpiDetail("Proof"));
@@ -200,6 +206,12 @@
     }
     const liveTo = getKpi("To");
     add("convert updates while typing", !!valueInput && app.state.convertValue === 2 && liveTo?.primary === "50.8 mm", liveTo ? `${liveTo.primary} | active=${document.activeElement === valueInput}` : "missing");
+
+    await setState({ category: "convert", mode: "torque", convertValue: 1, convertFrom: "N·m", convertTo: "N-cm" });
+    const torqueUnits = app.CONVERSION_UNITS.torque.map((u) => u.id);
+    const torqueTo = getKpi("To");
+    add("convert torque includes N-cm", torqueUnits.includes("N-cm") && rowButtonsText(2).includes("N-cm"), `buttons=${rowButtonsText(2).join(",")}`);
+    add("convert torque N·m to N-cm", torqueTo?.primary === "100 N-cm", torqueTo ? `${torqueTo.primary} | ${torqueTo.secondary}` : "missing");
   };
 
   const sizeRetentionTest = async () => {

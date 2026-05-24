@@ -462,12 +462,18 @@ const BOLT_MATERIALS = {
 
 const THREAD_MATERIALS = [
   { id: "steel", label: "Into steel" },
-  { id: "aluminum", label: "Into aluminum" }
+  { id: "aluminum", label: "Into aluminum" },
+  { id: "brass", label: "Into brass" },
+  { id: "delrin", label: "Into Delrin" },
+  { id: "titanium", label: "Into titanium" }
 ];
 
 const THREAD_MATERIAL_FACTORS = {
   steel: 1.0,
-  aluminum: 0.5
+  aluminum: 0.5,
+  brass: 0.5,
+  delrin: 0.2,
+  titanium: 0.8
 };
 
 const TREE = {
@@ -571,7 +577,8 @@ const CONVERSION_UNITS = {
   torque: [
     { id: "in·lbf", label: "in·lbf" },
     { id: "ft·lbf", label: "ft·lbf" },
-    { id: "N·m", label: "N·m" }
+    { id: "N·m", label: "N·m" },
+    { id: "N-cm", label: "N-cm" }
   ],
   temp: [
     { id: "°F", label: "°F" },
@@ -617,7 +624,8 @@ const CONVERSION_FUNCS = {
     base: "N·m",
     "in·lbf": { toBase: (v) => v * 0.113, fromBase: (v) => v / 0.113 },
     "ft·lbf": { toBase: (v) => v * 1.35582, fromBase: (v) => v / 1.35582 },
-    "N·m": { toBase: (v) => v, fromBase: (v) => v }
+    "N·m": { toBase: (v) => v, fromBase: (v) => v },
+    "N-cm": { toBase: (v) => v / 100, fromBase: (v) => v * 100 }
   },
   temp: {
     base: "K",
@@ -706,6 +714,7 @@ const UNIT_CONVERTERS = {
   "ft·lbf": { toSI: (v) => v * 1.35582, siUnit: "N·m" },
   "in·lbf": { toSI: (v) => v * 0.113, siUnit: "N·m" },
   "N·m": { toImp: (v) => v / 1.35582, impUnit: "ft·lbf" },
+  "N-cm": { toImp: (v) => (v / 100) / 1.35582, impUnit: "ft·lbf" },
   "ft/min": { toSI: (v) => v * 0.00508, siUnit: "m/s" },
   "m/min": { toImp: (v) => v * 3.28084 / 60, impUnit: "ft/s" },
   "ft/s": { toSI: (v) => v * 0.3048, siUnit: "m/s" },
@@ -942,10 +951,17 @@ function getProofMpaMetric(propertyClass) {
   return 600;
 }
 
+let IS_RENDERING = false;
+
 function render() {
-  renderRows();
-  renderInputs();
-  renderPanel();
+  IS_RENDERING = true;
+  try {
+    renderRows();
+    renderInputs();
+    renderPanel();
+  } finally {
+    IS_RENDERING = false;
+  }
 }
 
 function setState(next) {
@@ -1248,7 +1264,9 @@ function renderInputs() {
         dia.blur();
       }
     });
-    dia.addEventListener("blur", () => setState({ speedDia: Number(dia.value) || 0.25 }));
+    dia.addEventListener("blur", () => {
+      if (dia.isConnected && !IS_RENDERING) setState({ speedDia: Number(dia.value) || 0.25 });
+    });
     const feed = document.createElement("input");
     feed.type = "number";
     feed.step = "0.001";
@@ -1261,7 +1279,9 @@ function renderInputs() {
         feed.blur();
       }
     });
-    feed.addEventListener("blur", () => setState({ speedFeed: Number(feed.value) || 0.005 }));
+    feed.addEventListener("blur", () => {
+      if (feed.isConnected && !IS_RENDERING) setState({ speedFeed: Number(feed.value) || 0.005 });
+    });
     row.appendChild(dia);
     row.appendChild(feed);
     block.appendChild(row);
@@ -1293,7 +1313,9 @@ function createInputBlock(label, type, value, onInput, className = "") {
       input.blur();
     }
   });
-  input.addEventListener("blur", () => onInput(input.value, false));
+  input.addEventListener("blur", () => {
+    if (input.isConnected && !IS_RENDERING) onInput(input.value, false);
+  });
   block.appendChild(lab);
   block.appendChild(input);
   return block;
