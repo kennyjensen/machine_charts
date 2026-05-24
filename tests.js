@@ -37,6 +37,11 @@
     return { primary, secondary };
   };
 
+  const kpiCount = (label) => {
+    return Array.from(document.querySelectorAll(".kpi-label"))
+      .filter((node) => node.textContent === label).length;
+  };
+
   const rowButtonsText = (rowIndex) => {
     const rows = Array.from(document.querySelectorAll("#rows .row"));
     const row = rows[rowIndex];
@@ -103,6 +108,7 @@
     await setState({ category: "torque", mode: "inch" });
     add("torque hides quick drill input", hasQuickDrillInput() === false, "");
     add("torque shows Torque KPI", !!getKpi("Torque"), "");
+    add("torque has one Torque KPI", kpiCount("Torque") === 1, `count=${kpiCount("Torque")}`);
     add("torque single table highlight", tableHighlightOk(), tableHighlightDetail());
 
     await setState({ category: "torque", mode: "unc", torqueGrade: "a2" });
@@ -127,6 +133,9 @@
 
     await setState({ category: "torque", mode: "metric-coarse", torqueGrade: "a2", torqueSize: "M10" });
     add("torque metric stainless proof present", kpiHasNumber("Proof"), kpiDetail("Proof"));
+    add("torque metric has one Torque KPI", kpiCount("Torque") === 1, `count=${kpiCount("Torque")}`);
+    const metricBoltMaterials = rowButtonsText(2);
+    add("torque metric bolt material labels unique", new Set(metricBoltMaterials).size === metricBoltMaterials.length, `buttons=${metricBoltMaterials.join(",")}`);
     await setState({ category: "torque", mode: "metric-coarse", torqueGrade: "ti", torqueSize: "M10" });
     add("torque metric titanium proof present", kpiHasNumber("Proof"), kpiDetail("Proof"));
     await setState({ category: "torque", mode: "metric-coarse", torqueGrade: "nylon", torqueSize: "M10" });

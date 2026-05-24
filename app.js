@@ -453,7 +453,6 @@ const BOLT_MATERIALS = {
     { id: "4.6", label: "Low carbon steel", sub: "Grade 2 / 4.6–5.8" },
     { id: "8.8", label: "Alloy steel", sub: "Grade 5 / 8.8" },
     { id: "10.9", label: "High-strength alloy steel", sub: "Grade 8 / 10.9–12.9" },
-    { id: "12.9", label: "High-strength alloy steel", sub: "Grade 8 / 10.9–12.9" },
     { id: "a2", label: "Stainless steel", sub: "A2 / A4" },
     { id: "ti", label: "Titanium", sub: "Ti" },
     { id: "nylon", label: "Nylon", sub: "PA" }
@@ -1493,7 +1492,6 @@ function renderTorquePanel() {
     grid.appendChild(kpi("Proof", formatDual(torque.proofPsi, "psi", torque.proofPsi * 0.006894757, "MPa", UNIT_PREF.imp, 0, 1)));
     grid.appendChild(kpi("Clamp", formatDual(torque.clamp, "lbf", torque.clamp * 4.448221615, "N", UNIT_PREF.imp, 0, 0)));
     grid.appendChild(kpi("Torque", formatDual(torque.torqueFtLb, "ft·lbf", torque.torqueFtLb * 1.35582, "N·m", UNIT_PREF.imp, 1, 1)));
-    grid.appendChild(kpi("Torque", formatDual(torque.torqueInLb, "in·lbf", torque.torqueInLb * 0.113, "N·m", UNIT_PREF.imp, 0, 1)));
     grid.appendChild(kpi("Tensile area", formatDual(torque.area, "in²", torque.area * 645.16, "mm²", UNIT_PREF.imp, 4, 1)));
   } else {
     const size = METRIC_THREADS.find((s) => s.size === state.torqueSize) || METRIC_THREADS[14];
@@ -1514,7 +1512,6 @@ function renderTorquePanel() {
     grid.appendChild(kpi("Proof", formatDual(torque.proof / 0.006894757, "psi", torque.proof, "MPa", UNIT_PREF.si, 0, 0)));
     grid.appendChild(kpi("Clamp", formatDual(torque.clamp / 4.448221615, "lbf", torque.clamp, "N", UNIT_PREF.si, 0, 0)));
     grid.appendChild(kpi("Torque", formatDual(torque.torqueNm / 1.35582, "ft·lbf", torque.torqueNm, "N·m", UNIT_PREF.si, 1, 1)));
-    grid.appendChild(kpi("Torque", formatDual(torque.torqueFtLb, "ft·lbf", torque.torqueFtLb * 1.35582, "N·m", UNIT_PREF.si, 1, 1)));
     grid.appendChild(kpi("Tensile area", formatDual(torque.area / 645.16, "in²", torque.area, "mm²", UNIT_PREF.si, 4, 1)));
   }
 
