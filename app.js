@@ -1625,30 +1625,6 @@ function renderConversionPanel() {
   grid.appendChild(kpi("Base", funcs ? funcs.base : "—"));
   wrapper.appendChild(grid);
 
-  const table = document.createElement("table");
-  const units = CONVERSION_UNITS[type] || [];
-  const base = funcs ? funcs.base : "";
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>Unit</th>
-        <th>To ${base || "base"}</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${units.map((u) => `
-        <tr class="${u.id === state.convertTo ? "row-highlight" : ""}">
-          <td>${u.label}</td>
-          <td class="table-cell">${funcs && funcs[u.id] ? toFixedTrim(funcs[u.id].toBase(1), 6) : "formula"}</td>
-        </tr>`).join("")}
-    </tbody>`;
-  enforceSingleHighlight(table);
-  const scroll = document.createElement("div");
-  scroll.className = "table-scroll";
-  scroll.appendChild(table);
-  requestAnimationFrame(() => centerScrollOnHighlight(scroll));
-  wrapper.appendChild(scroll);
-
   return wrapper;
 }
 

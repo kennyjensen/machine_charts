@@ -146,7 +146,7 @@
     add("convert hides quick drill input", hasQuickDrillInput() === false, "");
     add("convert shows From KPI", !!getKpi("From"), "");
     add("convert shows To KPI", !!getKpi("To"), "");
-    add("convert single table highlight", tableHighlightOk(), tableHighlightDetail());
+    add("convert hides conversion factor table", document.querySelectorAll(".panel table").length === 0, tableHighlightDetail());
   };
 
   const tableHighlightOk = () => {
